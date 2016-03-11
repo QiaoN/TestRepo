@@ -1,2 +1,9 @@
 # Virtual Grid System
 This repo is using for Virtual Grid System lab exercise.
+
+## Mandatory requirements 
+You must design and implement a distributed (i.e., with multiple server nodes), replicated, and fault-tolerant version of the VGS system, and assess its properties. The VGS system should meet the following requirements:  
+
+1. **System operation requirements**: When a request arrives in a cluster, it is put in the local RM’s job queue or sent to the GS. The GS also maintains a job queue, from which it sends jobs to the RMs. When an RM receives a job from the GS, it has to accept it, although possibly by adding it to a waiting queue. Each cluster has an unique identifier and a fixed number of nodes (its size, e.g., 32, 64, 128). Each job has an unique identifier and a fixed duration (its runtime on a single node), and records the identifier of the cluster where it originally arrives,. The GS may also load-balance across the simulated multi-cluster system, in which case each job will record all additional clusters to which it is sent to run.
+2. **Fault tolerance**: Consider a simple failure model, in which the grid scheduler nodes may crash and restart. The VGS must by design be resilient against resource manager and grid scheduler node crashes. In addition, all grid and system events (e.g., job arrivals, job starts and completions, RM and GS node restarts) must be logged in the order they occur, on at least two grid scheduler nodes.
+3. **Scalability requirements**: The properties of the VGS must be demonstrated when it contains 20 clusters with at least 1,000 nodes, 5 grid scheduler nodes, and when the workload consists of at least 10,000 jobs in total. To enable the study of realistic imbalance situations, the ratio of the numbers of jobs arriving at the most and least loaded cluster should be, for at least a significant part of the experiments, at least 5.
