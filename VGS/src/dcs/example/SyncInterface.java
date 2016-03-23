@@ -1,4 +1,4 @@
-package vgs.example;
+package dcs.example;
 
 import java.rmi.Remote;
 
