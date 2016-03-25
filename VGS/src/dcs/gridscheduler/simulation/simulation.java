@@ -8,7 +8,7 @@ public class simulation {
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-		ServerURL[] serverURLList = new ServerURL[]{new ServerURL(101,"192.168.1.1"), new ServerURL(102,"192.168.1.2")};
+		ServerURL[] serverURLList = new ServerURL[]{new ServerURL(101,"192.168.1.1"), new ServerURL(102,"192.168.1.2"),new ServerURL(103,"192.168.1.3")};
 		DistributedServer[] serverArray = new DistributedServer[serverURLList.length];
 		for (int i =0; i <serverURLList.length; i++){ 
 			 try {
@@ -39,7 +39,7 @@ public class simulation {
 		
 		try {
 			serverArray[0].sendHeartBeat(serverArray[1].getID(),serverArray[0].getID());
-		} catch (RemoteException e) {
+		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
