@@ -2,9 +2,10 @@ package dcs.gridscheduler.simulation;
 
 import java.rmi.RemoteException;
 
-import dcs.gridscheduler.model.*;
+import dcs.gridscheduler.model.DistributedServer;
+import dcs.gridscheduler.model.ServerURL;
 
-public class simulation {
+public class FaultTolerantSimulation {
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -21,8 +22,8 @@ public class simulation {
 		/*Starting - binding with url*/
 		for (DistributedServer object : serverArray){
 			try {
-				// test fault tolerant - 103 will start from new thread.
-				if (object.getID()!=103)
+				// Only start remote server with id =103
+				if(object.getID()==103)
 				object.starting();
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
@@ -32,15 +33,16 @@ public class simulation {
 		/*After creating list of server --> connect them*/
 		for (DistributedServer object : serverArray){
 			try {
-				// test fault tolerant - 103 will start from new thread.
-				if (object.getID()!=103)
+				// only run someone having id = 103
+				if(object.getID()==103){
 				object.connectToRemoteServers(serverURLList);
+				object.reRegisterInRemoteServers();
+				}
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-		System.out.println("Here");
 	}
- 
+
 }

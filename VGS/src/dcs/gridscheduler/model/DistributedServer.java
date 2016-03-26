@@ -55,6 +55,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	public DistributedServer(int serverID,ServerURL[] listURL) throws RemoteException{
 		// import server's id and url
 		this.ID = serverID;
+				
 		assert (listURL.length >0):"The number of server should be > 0";
 		for (ServerURL object : listURL){
 			if (object.id == ID)
@@ -102,17 +103,18 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 						/* Test case - When a remote server dies -- other servers have to detect and reject
 						 * In this case, 103 will stop and 101 and 102 detect and reject 103.
 						 * */
-						loopNumber++;
+						/*loopNumber++;
 						if ((loopNumber==3) && (ID == 103)){
 							logger.log(Level.INFO, "loopNumber =5 and stop server 103");
 							// Stop remote server ID = 103
 							stopRemoteServer();
-						}
+						}*/
 						
 						// Send heartbeat message to remote Servers
 						for (Map.Entry<Integer, SyncServerInterface> entry : remoteServer.entrySet()){
 							sendHeartBeat (entry.getKey(), ID);
 						}
+						// In ra o day xem remote servers co bao nhieu phan tu
 						logger.log(Level.INFO,"Send heartbeat message repeatedly. Sender: "+ID);
 						// Check whether any remote server works or not
 						for (Map.Entry<Integer, Integer> object : remoteReply.entrySet()){
@@ -123,7 +125,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 						logger.log(Level.SEVERE," Cannot send heartbeat message repeatedly. Exception: "+ e);
 						}
 					}
-				},100,5000);// Delay after 0.1s and repeat in 0.5s
+				},100,10000);// Delay after 0.1s and repeat in 0.5s
 	}
 	/**
 	 * 	Test case - Remove a remote server by rebind his url --> other server cannot reach to the server
@@ -160,9 +162,12 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 				remoteJobs.put(listURL[i].id,0);
 				// Create the map - status of remote server updated through heartbeat - starting with 0
 				remoteReply.put(listURL[i].id,0);
+				logger.log (Level.INFO,"connectToRemoteServers "+listURL[i].id+" by server " + this.ID);
 			} catch (Exception e) {
 				// TODO: handle exception
 				logger.log (Level.SEVERE,"connectToRemoteServers exception" + e.toString());
+				// Cannot connect this server --> remove it
+				this.removeRemoteServer(listURL[i].id);
 			}
 			}
 		}
@@ -191,6 +196,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			//remoteServer.get(receiverID).heartBeat(senderID, this.getTotalofJobs());
 			// Update heart beat
 			remoteReply.put(receiverID, 0);
+			logger.log(Level.INFO, senderID+" sends heartbeat to "+ receiverID);
 		} catch (Exception e) {
 			// TODO: handle exception
 			int updateValue = remoteReply.get(receiverID)-1;
@@ -212,10 +218,22 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			logger.log(Level.SEVERE, remoteServerID +" cannot be removed - Exception: "+e);
 		}
 	}
-	
+	/** 
+	 * 	The crashed server re-registers in remote servers
+	 * */
+	public void reRegisterInRemoteServers() throws RemoteException{
+		for (Map.Entry<Integer,SyncServerInterface>entry:remoteServer.entrySet()){
+			// Temporary value of current jobs = 10
+			logger.log(Level.INFO, "reRegisterInRemoteServers remote server is "+entry.getValue());
+			entry.getValue().recoverFromCrash(this.URL, this.ID, 10);
+		}
+	}
 	/**
 	 * 	When remote server is back, it will do registration procedure in the current of group servers.
-	 *  including remoteServer, remoteJobs and remoteRely
+	 *  including remoteServer, remoteJobs and remoteRely.
+	 *  @parameter url - crashed server
+	 *  @parameter remoteServerID - crashed server
+	 *  @parameter currentJobs - crashed server
 	 * */
 	public void recoverFromCrash (String url,int remoteServerID, int currentJobs) throws RemoteException{
 		try{
@@ -224,7 +242,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			remoteServer.put(remoteServerID, (SyncServerInterface)Naming.lookup(url));
 			remoteJobs.put(remoteServerID,currentJobs);
 			remoteReply.put(remoteServerID,0);
-			logger.log(Level.INFO, remoteServerID +" is readded");
+			logger.log(Level.INFO, this.ID+" is back and "+remoteServerID +" is re-added");
 			}
 			else logger.log(Level.SEVERE, "URL or remote server ID is not validated");
 		}catch(Exception e){
