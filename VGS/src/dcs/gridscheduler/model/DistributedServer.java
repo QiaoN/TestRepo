@@ -332,9 +332,12 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	 * */
 	public void connectToServer(int clientID, String ClientName) throws RemoteException{
 		// add client to List
-		if ((clientID >0) && (ClientName.length()>0))
+		if ((clientID >0) && (ClientName.length()>0)){
 		clientList.put(clientID, ClientName);
-		logger.log(Level.INFO, "add client with ID = ",clientID);
+		logger.log(Level.INFO, "add client with ID = " + clientID);
+		}
+		else logger.log(Level.SEVERE, "something wrong with client ID = " + clientID);
+
 	}
 	
 	/**
@@ -345,10 +348,10 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 		try {
 			if (clientID>0)
 				 clientList.remove(clientID);
-		logger.log(Level.INFO, "remove client with ID = ",clientID);
+		logger.log(Level.INFO, "remove client with ID = "+clientID);
 		} catch (Exception e) {
 			// TODO: handle exception
-		logger.log(Level.SEVERE, "cannot remove client with ID = ",clientID);
+		logger.log(Level.SEVERE, "cannot remove client with ID = "+clientID);
 		}	
 	}
 	
@@ -357,9 +360,11 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	 * */
 	public void addJob(Job job) throws RemoteException{
 		// add a job to Queue
-		if (job!=null)
+		if (job!=null){
 			waitingJobQueue.add(job);
-		logger.log(Level.INFO, "add job = ",job.toString());
+			logger.log(Level.INFO, "add job with ID = " +job.getId());
+		} else 
+			logger.log(Level.SEVERE, "cannot add job with ID = "+job.getId());
 	}
 	/**
 	 * 	Remove a finished job from queue
