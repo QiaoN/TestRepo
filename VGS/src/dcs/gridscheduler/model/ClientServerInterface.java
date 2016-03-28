@@ -1,5 +1,22 @@
 package dcs.gridscheduler.model;
 
-public interface ClientServerInterface {
+import java.rmi.Remote;
+import java.rmi.RemoteException;
 
+public interface ClientServerInterface extends Remote{
+
+	/**
+	 * 	Client connect to server
+	 * */
+	public void connectToServer(int clientID, String ClientName) throws RemoteException;
+	
+	/**
+	 * 	Client disconnect
+	 * */
+	public void disconnect(int clientID)throws RemoteException;
+	
+	/**
+	 * 	Client submit a job
+	 * */
+	public void addJob(Job job) throws RemoteException;
 }

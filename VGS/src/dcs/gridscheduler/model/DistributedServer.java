@@ -9,6 +9,7 @@ import java.rmi.RemoteException;
 import java.rmi.server.RemoteServer;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
@@ -21,7 +22,7 @@ import java.util.logging.FileHandler;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.SimpleFormatter;
 
-public class DistributedServer extends UnicastRemoteObject implements SyncServerInterface{
+public class DistributedServer extends UnicastRemoteObject implements SyncServerInterface, ClientServerInterface{
 
 	//Job Queue
 	private ConcurrentLinkedQueue<Job> jobQueue;
@@ -32,6 +33,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	private boolean running;
 	private final Logger logger = Logger.getLogger(DistributedServer.class.getName());
 	private int totalJob=0; // total Job in queue + in clusters; when a job done --
+	private ConcurrentLinkedQueue<Job> waitingJobQueue; // Queue of comming job from clients.
 	
 	/*Remote Servers*/
 	private List ServerULR; // Co can khong nhi - co SyncServerInterface o tren roi... -> co the convert ra list of server
@@ -48,6 +50,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	private Map <Integer, Integer> RMJobs; // total current Jobs at each RM.
 	
 	/*Client*/
+	private Map <Integer,String> clientList; // the list of connected client
 	
 	/*Test*/
 	private int loopNumber = 0; // Increase after each loop of sending heartbeat
@@ -67,6 +70,10 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 		remoteJobs = new HashMap<Integer, Integer>();
 		remoteReply = new HashMap<Integer, Integer>();
 		RMJobs = new  HashMap <Integer, Integer>();
+		
+		// Client
+		clientList = new HashMap<Integer, String>();
+		waitingJobQueue = new ConcurrentLinkedQueue<Job>();
 		
 		// Logger configuration
 		logger.setLevel(Level.ALL);
@@ -302,4 +309,44 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			return 0;
 	}
 	
+	/**
+	 * 	Client connect to server
+	 * */
+	public void connectToServer(int clientID, String ClientName) throws RemoteException{
+		// add client to List
+		if ((clientID >0) && (ClientName.length()>0))
+		clientList.put(clientID, ClientName);
+		logger.log(Level.INFO, "add client with ID = ",clientID);
 	}
+	
+	/**
+	 * 	Client disconnect
+	 * */
+	public void disconnect(int clientID)throws RemoteException{
+		// remove a client
+		try {
+			if (clientID>0)
+				 clientList.remove(clientID);
+		logger.log(Level.INFO, "remove client with ID = ",clientID);
+		} catch (Exception e) {
+			// TODO: handle exception
+		logger.log(Level.SEVERE, "cannot remove client with ID = ",clientID);
+		}	
+	}
+	
+	/**
+	 * 	Client submit a job
+	 * */
+	public void addJob(Job job) throws RemoteException{
+		// add a job to Queue
+		if (job!=null)
+			waitingJobQueue.add(job);
+		logger.log(Level.INFO, "add job = ",job.toString());
+	}
+	/**
+	 * 	Remove a finished job from queue
+	 * */
+	public boolean removeJob (Job job){
+			return waitingJobQueue.remove(job);
+	}
+}
