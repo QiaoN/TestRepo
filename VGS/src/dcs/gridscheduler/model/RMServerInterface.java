@@ -1,8 +1,11 @@
 package dcs.gridscheduler.model;
 
-/**
- * 	Define communicated function between RM and Scheduled Node
- * */
-public interface RMServerInterface {
+import java.rmi.Remote;
+import java.rmi.RemoteException;
 
+public interface RMServerInterface extends Remote {
+	/**
+	 *  load job to cluster server (1 job per time)
+	 * */
+	public void loadJob (Job job) throws RemoteException;
 }
