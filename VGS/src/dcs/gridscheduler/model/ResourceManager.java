@@ -64,7 +64,7 @@ public class ResourceManager implements INodeEventHandler, RMServerInterface {
 		try {
 			stub = (RMServerInterface) UnicastRemoteObject.exportObject(this, 0);
 			Registry registry = LocateRegistry.getRegistry();
-			registry.bind(this.cluster.getName(), stub);
+			registry.rebind(this.cluster.getName(), stub);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -157,6 +157,7 @@ public class ResourceManager implements INodeEventHandler, RMServerInterface {
 	@Override
 	public void loadJob (Job job) throws RemoteException {
 		assert(job != null): "parameter 'job' cannot be null";
+		System.out.println("RM load Job id ="+job.toString());
 		addJob(job);
 	}
 

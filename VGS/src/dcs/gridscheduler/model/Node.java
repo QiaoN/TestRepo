@@ -1,7 +1,8 @@
 package dcs.gridscheduler.model;
 
 import java.util.ArrayList;
-
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 /**
  * 
@@ -16,6 +17,7 @@ public class Node {
 	private long startTime;
 
 	private ArrayList<INodeEventHandler> handlers;
+	private final Logger logger = Logger.getLogger(DistributedServer.class.getName());
 
 	/**
 	 * Constructs a new Node object.
@@ -23,6 +25,7 @@ public class Node {
 	public Node() {
 		status = NodeStatus.Idle;
 		handlers = new ArrayList<INodeEventHandler>();
+		logger.setLevel(Level.ALL);
 	}
 
 	/**
@@ -56,13 +59,11 @@ public class Node {
 	public void startJob(Job job) {
 		// preconditions
 		assert(status == NodeStatus.Idle) : "The status of a node should be idle when it starts a job, but it's not.";
-
 		runningJob = job;
 		runningJob.setStatus(JobStatus.Running);
 		startTime = System.currentTimeMillis();
-
 		status = NodeStatus.Busy;
-
+		logger.log(Level.INFO, runningJob.toString()+"start");
 	}
 
 	/**
@@ -76,7 +77,7 @@ public class Node {
 			if (System.currentTimeMillis() - startTime > runningJob.getDuration()) {
 				// job done
 				runningJob.setStatus(JobStatus.Done);
-
+				logger.log(Level.INFO,"Node.poll job"+runningJob.getId()+" done");
 				// fire event handler
 				for (INodeEventHandler handler : handlers)
 					handler.jobDone(runningJob);

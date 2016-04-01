@@ -46,8 +46,15 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	 * remote server out. In case that the remote reply heartbeat */
 	private Map <Integer, Integer> remoteReply; // response heartbeat
 	private Timer heartBeatTimer; // send heartbeat at regular intervals. time t = 10 ms ?
+	
 	/*RM*/
 	private Map <Integer, Integer> RMJobs; // total current Jobs at each RM.
+	/*This object will control the interface between Scheduler (Distributed Server) and its clusters
+	 * When a DistributedServer get a job it will add directly to clusterManager.
+	 * That's all. clusterManager will do commnucation with clusters.
+	 * */
+	private ClusterManager clusterManager; 
+	
 	
 	/*Client*/
 	private Map <Integer,String> clientList; // the list of connected client
@@ -75,7 +82,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 		// Client
 		clientList = new HashMap<Integer, String>();
 		waitingJobQueue = new ConcurrentLinkedQueue<Job>();
-		
+				
 		// Logger configuration
 		logger.setLevel(Level.ALL);
 		// Log to a file when deploying to AWS. Nomarlly, we put log to console.
@@ -100,6 +107,17 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 				// TODO Auto-generated catch block
 				logger.log (Level.SEVERE, "starting exception ="+e.toString());
 			}
+		// After starting server, create workers and run (clusterManager)
+		/*Test communication from client to GS, then to ClusterManger, to RM and nodes */
+		// ClusterManager
+			try {
+				clusterManager = new ClusterManager(2,5,this.URL+"-cl");
+			} catch (Exception e) {
+				// TODO: handle exception
+				logger.log(Level.SEVERE, "ClusterManager Exception ="+ e);
+			}
+
+			
 		//create heartBeatTimer but wait for other remote servers launch then start heartBeatTimer
 			heartBeatTimer = new Timer();
 			heartBeatTimer.schedule(new TimerTask() {
@@ -362,6 +380,8 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 		// add a job to Queue
 		if (job!=null){
 			waitingJobQueue.add(job);
+			// Add this job to clusterManager queue job.
+			clusterManager.addJob(job);
 			logger.log(Level.INFO, "add job with ID = " +job.getId());
 		} else 
 			logger.log(Level.SEVERE, "cannot add job with ID = "+job.getId());

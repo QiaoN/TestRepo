@@ -1,5 +1,6 @@
 package dcs.gridscheduler.simulation;
 
+import java.rmi.RemoteException;
 import java.util.logging.Level;
 
 import com.sun.media.jfxmedia.logging.Logger;
@@ -32,8 +33,14 @@ public class ClientSimulation {
 		//if (connect == true) aClient.submitAJobToServer(aNewJob);
 		
 		// Send a thousand of workloads to test...
-		for (int i= 0; i<1000; i++){
-			Job bNewJob = new Job(1000,i);
+		for (int i= 0; i<1; i++){
+			Job bNewJob=null;
+			try {
+				bNewJob = new Job(1000,i);
+			} catch (RemoteException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
 			if (connect == true) aClient.submitAJobToServer(bNewJob);
 			try {
 				Thread.sleep(10);

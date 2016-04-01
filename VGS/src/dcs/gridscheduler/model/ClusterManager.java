@@ -20,6 +20,7 @@ public class ClusterManager implements RMOffLoadInterface {
 	private static String clusterPrefix = "cluster";
 	private String gsURL;
 	
+	/*gsURL here = Address of Scheduler + "-cl" to distinguish ClusterManager of each Scheduler*/
 	public ClusterManager(int clusterNumber, int nodeNumber, String gsURL) {
 		
 		assert(clusterNumber > 0);
@@ -34,7 +35,8 @@ public class ClusterManager implements RMOffLoadInterface {
 		//init cluster list
 		clusterList = new ArrayList<Cluster>(clusterNumber);
 		for (int i = 0; i < clusterNumber; i++) {
-			String clusterName = clusterPrefix + i;
+			// cluster name = gsURL + clusterPrefix + i to differentiate with cluster of other Cluster Manager of Scheuduler
+			String clusterName = this.gsURL+"-"+clusterPrefix + i;
 			Cluster c = new Cluster(clusterName, nodeNumber, gsURL);
 			clusterList.add(c);
 		}
@@ -44,7 +46,7 @@ public class ClusterManager implements RMOffLoadInterface {
 		try {
 			gsstub = (RMOffLoadInterface) UnicastRemoteObject.exportObject(this, 0);
 			Registry registry = LocateRegistry.getRegistry();
-			registry.bind(gsURL, gsstub);
+			registry.rebind(gsURL, gsstub);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -54,18 +56,19 @@ public class ClusterManager implements RMOffLoadInterface {
 	public void addJob(Job job) {
 		assert(job != null);
 		jobQueue.add(job);
-		pushJob(job);
+		pushJob();
 	}
 	
 	//TODO: think about that this method should run automatically or logic triggered 
-	public void pushJob(Job job) {
+	public void pushJob() {
 		Registry registry;
 		String clusterName = mostFreeCluster();
 		try {
 			registry = LocateRegistry.getRegistry();
 		    RMServerInterface clusterstub = (RMServerInterface) registry.lookup(clusterName);	
+		    //NO, first in first out -> should use poll
+		    Job job = jobQueue.poll();
 		    clusterstub.loadJob(job);
-		    jobQueue.remove(job);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
