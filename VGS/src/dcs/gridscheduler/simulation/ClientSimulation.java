@@ -36,7 +36,10 @@ public class ClientSimulation {
 		for (int i= 0; i<5; i++){
 			Job bNewJob=null;
 			try {
-				bNewJob = new Job(15000,i);
+				//int duration = new Random().nextInt((19 - 11 + 1) + 11);
+				//int duratoinTime = duration*1000;
+				int durationTime = 15000;
+				bNewJob = new Job(durationTime,i);
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
