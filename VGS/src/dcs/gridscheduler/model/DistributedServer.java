@@ -156,7 +156,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 						logger.log(Level.SEVERE," Cannot send heartbeat message repeatedly. Exception: "+ e);
 						}
 					}
-				},100,1000);// Delay after 0.1s and repeat in 0.5s
+				},100,1000);// Delay after 0.1s and repeat in 1s
 	}
 	/**
 	 * 	Test case - Remove a remote server by rebind his url --> other server cannot reach to the server
