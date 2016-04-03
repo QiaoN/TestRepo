@@ -261,7 +261,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			if (selfIndex == (serverSize-1)) {
 				Integer finalRangeIndex = 0;
 				if(resignJobs.size()>0) {
-					finalRangeIndex = resignJobs.size()-1;
+					finalRangeIndex = resignJobs.size();
 				}
 				resignSelfJobList = resignJobs.subList((selfIndex*rangeOfJobSize), finalRangeIndex);
 			} else {
