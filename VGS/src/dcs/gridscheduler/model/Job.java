@@ -17,7 +17,7 @@ public class Job implements Serializable {
 	private long duration;
 	private JobStatus status;
 	private long id;
-
+	public int assigendGSNode;
 	/**
 	 * Constructs a new Job object with a certain duration and id. The id has to be unique
 	 * within the distributed system to avoid collisions.

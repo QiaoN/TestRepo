@@ -33,22 +33,23 @@ public class ClientSimulation {
 		//if (connect == true) aClient.submitAJobToServer(aNewJob);
 		
 		// Send a thousand of workloads to test...
-		for (int i= 0; i<1; i++){
+		for (int i= 0; i<5; i++){
 			Job bNewJob=null;
 			try {
-				bNewJob = new Job(1000,i);
+				bNewJob = new Job(15000,i);
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			if (connect == true) aClient.submitAJobToServer(bNewJob);
 			try {
-				Thread.sleep(10);
+				Thread.sleep(5);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
+		
 	}
 
 }

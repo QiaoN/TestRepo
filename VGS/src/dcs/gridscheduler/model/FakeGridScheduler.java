@@ -26,7 +26,7 @@ public class FakeGridScheduler {
 			}
     	}
     	
-    	ClusterManager cm = new ClusterManager(2,5,"gsURL");
+    	//ClusterManager cm = new ClusterManager(2,5,"gsURL", );
     	
     	for(Job job: jobs) {
     		cm.addJob(job);

@@ -16,19 +16,21 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class ClusterManager implements ClusterManagerInterface {
 	//TODO: handle multiple clusters
 	private List <Cluster> clusterList;
-	public Queue<Job> jobProcessQueue;
-	public Queue<Job> jobFinishedQueue;
+	public ConcurrentLinkedQueue<Job> jobProcessQueue;
+	public ConcurrentLinkedQueue<Job> jobFinishedQueue;
 	private static String clusterPrefix = "cluster";
 	private String gsURL;
+	private DistributedServer gsNode;
 	
 	/*gsURL here = Address of Scheduler + "-cl" to distinguish ClusterManager of each Scheduler*/
-	public ClusterManager(int clusterNumber, int nodeNumber, String gsURL) {
+	public ClusterManager(int clusterNumber, int nodeNumber, String gsURL, DistributedServer gsNode) {
 		
 		assert(clusterNumber > 0);
 		assert(nodeNumber > 0);
 		assert(gsURL.length() > 0);
 		
 		this.gsURL= gsURL;
+		this.gsNode = gsNode;
 		
 		//init job queue
 		this.jobProcessQueue = new ConcurrentLinkedQueue<Job>();
@@ -88,6 +90,7 @@ public class ClusterManager implements ClusterManagerInterface {
 	public void rmFinishJob(Job job) throws RemoteException {
 		assert(job != null);
 		jobFinishedQueue.add(job);
+		this.gsNode.removeJob(job);
 		System.out.println("rm Job Done: "+ job.getId() );
 	    System.out.println("Job status: "+ job.getStatus());
 

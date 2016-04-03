@@ -2,6 +2,8 @@ package dcs.gridscheduler.model;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  *  Here is RMI interface using in communication between VGS Nodes
@@ -11,7 +13,7 @@ public interface SyncServerInterface extends Remote{
 	/**
 	 *  heartbeat - update the status of sending node (alive or not); update it's current workloads
 	 * */
-	public void heartBeat (int remoteID, int currentWorkloads) throws RemoteException;
+	public void heartBeat (int remoteID, int currentWorkloads, List<Job> processJobList) throws RemoteException;
 	
 	/**
 	 * 	When remote server is back, it will do registration procedure in the current of group servers.
