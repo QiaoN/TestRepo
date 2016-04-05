@@ -52,9 +52,12 @@ public class Client{
 	}
 	
 	public void submitAJobToServer(Job job){
-		int randomItem = new Random().nextInt(this.serverObjects.size());
+		//int serverId = new Random().nextInt(this.serverObjects.size());
+		long jobID = job.getId();
+		int serverSize = this.serverObjects.size();
+		int serverId = Math.toIntExact(jobID % serverSize); 
 		try {
-			this.serverObjects.get(randomItem).addJob(job);
+			this.serverObjects.get(serverId).addJob(job);
 			logger.log(Level.INFO, "Job before submit ID=" + job.getId());
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
