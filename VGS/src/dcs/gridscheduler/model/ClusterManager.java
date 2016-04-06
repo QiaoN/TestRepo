@@ -13,24 +13,28 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * This class should be a property of gs node. 
  * This class help gs node to manage and communicate with its clusters.
  */
-public class ClusterManager implements RMOffLoadInterface {
+public class ClusterManager implements ClusterManagerInterface {
 	//TODO: handle multiple clusters
 	private List <Cluster> clusterList;
-	public Queue<Job> jobQueue;
+	public ConcurrentLinkedQueue<Job> jobProcessQueue;
+	public ConcurrentLinkedQueue<Job> jobFinishedQueue;
 	private static String clusterPrefix = "cluster";
 	private String gsURL;
+	private DistributedServer gsNode;
 	
 	/*gsURL here = Address of Scheduler + "-cl" to distinguish ClusterManager of each Scheduler*/
-	public ClusterManager(int clusterNumber, int nodeNumber, String gsURL) {
+	public ClusterManager(int clusterNumber, int nodeNumber, String gsURL, DistributedServer gsNode) {
 		
 		assert(clusterNumber > 0);
 		assert(nodeNumber > 0);
 		assert(gsURL.length() > 0);
 		
 		this.gsURL= gsURL;
+		this.gsNode = gsNode;
 		
 		//init job queue
-		this.jobQueue = new ConcurrentLinkedQueue<Job>();
+		this.jobProcessQueue = new ConcurrentLinkedQueue<Job>();
+		this.jobFinishedQueue = new ConcurrentLinkedQueue<Job>();
 		
 		//init cluster list
 		clusterList = new ArrayList<Cluster>(clusterNumber);
@@ -42,9 +46,9 @@ public class ClusterManager implements RMOffLoadInterface {
 		}
 		
 		//registry self
-		RMOffLoadInterface gsstub;
+		ClusterManagerInterface gsstub;
 		try {
-			gsstub = (RMOffLoadInterface) UnicastRemoteObject.exportObject(this, 0);
+			gsstub = (ClusterManagerInterface) UnicastRemoteObject.exportObject(this, 0);
 			Registry registry = LocateRegistry.getRegistry();
 			registry.rebind(gsURL, gsstub);
 		} catch (Exception e) {
@@ -55,7 +59,7 @@ public class ClusterManager implements RMOffLoadInterface {
 	
 	public void addJob(Job job) {
 		assert(job != null);
-		jobQueue.add(job);
+		jobProcessQueue.add(job);
 		pushJob();
 	}
 	
@@ -67,7 +71,7 @@ public class ClusterManager implements RMOffLoadInterface {
 			registry = LocateRegistry.getRegistry();
 		    RMServerInterface clusterstub = (RMServerInterface) registry.lookup(clusterName);	
 		    //NO, first in first out -> should use poll
-		    Job job = jobQueue.poll();
+		    Job job = jobProcessQueue.poll();
 		    clusterstub.loadJob(job);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -76,10 +80,20 @@ public class ClusterManager implements RMOffLoadInterface {
 	}
 	
 	@Override
-	public void offLoadJob(Job job) throws RemoteException {
+	public void rmOffLoadJob(Job job) throws RemoteException {
 		assert(job != null);
-		jobQueue.add(job);
+		jobProcessQueue.add(job);
 		System.out.println("off load job from RM:"+ job.getId());
+	}
+	
+	@Override
+	public void rmFinishJob(Job job) throws RemoteException {
+		assert(job != null);
+		jobFinishedQueue.add(job);
+		this.gsNode.removeJob(job);
+		System.out.println("rm Job Done: "+ job.getId() );
+	    System.out.println("Job status: "+ job.getStatus());
+
 	}
 	
 	//Helper

@@ -9,9 +9,10 @@ import java.rmi.RemoteException;
  * This interface can be integrated to SyncServerInterface with the same offLoadJob method.
  * Or keep it separate for RM-GS communication only  
  * */
-public interface RMOffLoadInterface extends Remote {
+public interface ClusterManagerInterface extends Remote {
 	/**
 	 *  off load job from cluster server back to GS Node (1 job per time)
 	 * */
-	public void offLoadJob (Job job) throws RemoteException;
+	public void rmOffLoadJob (Job job) throws RemoteException;
+	public void rmFinishJob (Job job) throws RemoteException;
 }

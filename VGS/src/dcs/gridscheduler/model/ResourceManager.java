@@ -95,8 +95,8 @@ public class ResourceManager implements INodeEventHandler, RMServerInterface {
 		    Registry registry;
 			try {
 				registry = LocateRegistry.getRegistry();
-			    RMOffLoadInterface stub = (RMOffLoadInterface) registry.lookup(gridSchedulerURL);
-				stub.offLoadJob(job);
+			    ClusterManagerInterface stub = (ClusterManagerInterface) registry.lookup(gridSchedulerURL);
+				stub.rmOffLoadJob(job);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -147,11 +147,21 @@ public class ResourceManager implements INodeEventHandler, RMServerInterface {
 	public void jobDone(Job job) {
 		// preconditions
 		assert(job != null) : "parameter 'job' cannot be null";
-	    System.out.println("Job Done: "+ job.getId() );
-	    System.out.println("Job status: "+ job.getStatus());
-		// job finished, remove it from our pool
-		jobQueue.remove(job);
-		scheduleJobs();
+	    
+	    Registry registry;
+		try {
+			registry = LocateRegistry.getRegistry();
+		    ClusterManagerInterface stub = (ClusterManagerInterface) registry.lookup(gridSchedulerURL);
+			stub.rmFinishJob(job);
+			// job finished, remove it from our pool
+			jobQueue.remove(job);
+			scheduleJobs();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	    
+
 	}
 	
 	@Override
