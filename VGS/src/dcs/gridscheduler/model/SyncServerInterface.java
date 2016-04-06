@@ -2,6 +2,7 @@ package dcs.gridscheduler.model;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  *  Here is RMI interface using in communication between VGS Nodes
@@ -39,4 +40,10 @@ public interface SyncServerInterface extends Remote{
 	 * 	Here is ACK message from other servers to notify recovered server
 	 * */
 	public void recoverACK () throws RemoteException;
+	
+	/**
+	 * 	Replicate waiting task and finished task to replicas
+	 * */
+	public  void replicateJobQueues (int originalID, Job headOfWaitingQueue, ConcurrentLinkedQueue<Job> waitingJobQueue, ConcurrentLinkedQueue<Job> finishedJobQueue) throws RemoteException;
+		
 }

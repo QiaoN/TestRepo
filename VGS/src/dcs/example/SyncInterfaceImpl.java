@@ -18,6 +18,11 @@ public class SyncInterfaceImpl extends UnicastRemoteObject implements SyncInterf
 	/** Implement the function client will call*/
 	public int getStatus() throws RemoteException{
 		//return the value of queue size	
-		return 10;
+		try {
+			return 10;
+		} catch (Exception e) {
+			System.out.print("ServerNode::Connect to server but there is an exception "+ e);
+			return 0;
+		}
 	}
 }

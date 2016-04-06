@@ -16,7 +16,7 @@ public class ServerNode {
 			System.out.println("Data Server is ready ...");
 			} catch (Exception e) {
 			// TODO: handle exception
-				System.err.println(e);
+				System.err.println("ServerNode::Connect to server but there is an exception "+ e);
 				//System.exit(1);
 		}
 	}
