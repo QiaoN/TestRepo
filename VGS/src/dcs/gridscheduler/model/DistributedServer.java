@@ -8,10 +8,14 @@ import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.server.RemoteServer;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -33,12 +37,13 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	private boolean running;
 	private final Logger logger = Logger.getLogger(DistributedServer.class.getName());
 	private int totalJob=0; // total Job in queue + in clusters; when a job done --
-	private ConcurrentLinkedQueue<Job> waitingJobQueue; // Queue of comming job from clients.
+	private List<Job> waitingJobQueue; // Queue of comming job from clients.
 	
 	/*Remote Servers*/
 	private List ServerULR; // Co can khong nhi - co SyncServerInterface o tren roi... -> co the convert ra list of server
 	private Map <Integer, SyncServerInterface> remoteServer; // remoteObject
 	private Map <Integer, Integer> remoteJobs; // total current Job at remote server
+	private Map <Integer, List<Job>> remoteJobQueues;
 	
 	/* Mechanism of Updating heart beat state - starting with 0. when send heartbeat successful the state
 	 * will be update 0. If cannot send heartbeat the state will be minused by 1 (-1,-2,..). If there is a remote server die
@@ -46,8 +51,15 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	 * remote server out. In case that the remote reply heartbeat */
 	private Map <Integer, Integer> remoteReply; // response heartbeat
 	private Timer heartBeatTimer; // send heartbeat at regular intervals. time t = 10 ms ?
+	
 	/*RM*/
 	private Map <Integer, Integer> RMJobs; // total current Jobs at each RM.
+	/*This object will control the interface between Scheduler (Distributed Server) and its clusters
+	 * When a DistributedServer get a job it will add directly to clusterManager.
+	 * That's all. clusterManager will do commnucation with clusters.
+	 * */
+	private ClusterManager clusterManager; 
+	
 	
 	/*Client*/
 	private Map <Integer,String> clientList; // the list of connected client
@@ -69,13 +81,14 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 		
 		// Map
 		remoteJobs = new HashMap<Integer, Integer>();
+		remoteJobQueues = new HashMap<Integer,List<Job>>();
 		remoteReply = new HashMap<Integer, Integer>();
 		RMJobs = new  HashMap <Integer, Integer>();
 		
 		// Client
 		clientList = new HashMap<Integer, String>();
-		waitingJobQueue = new ConcurrentLinkedQueue<Job>();
-		
+		waitingJobQueue = new ArrayList<Job>();
+				
 		// Logger configuration
 		logger.setLevel(Level.ALL);
 		// Log to a file when deploying to AWS. Nomarlly, we put log to console.
@@ -100,6 +113,17 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 				// TODO Auto-generated catch block
 				logger.log (Level.SEVERE, "starting exception ="+e.toString());
 			}
+		// After starting server, create workers and run (clusterManager)
+		/*Test communication from client to GS, then to ClusterManger, to RM and nodes */
+		// ClusterManager
+			try {
+				clusterManager = new ClusterManager(2,5,this.URL+"-cl", this);
+			} catch (Exception e) {
+				// TODO: handle exception
+				logger.log(Level.SEVERE, "ClusterManager Exception ="+ e);
+			}
+
+			
 		//create heartBeatTimer but wait for other remote servers launch then start heartBeatTimer
 			heartBeatTimer = new Timer();
 			heartBeatTimer.schedule(new TimerTask() {
@@ -132,7 +156,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 						logger.log(Level.SEVERE," Cannot send heartbeat message repeatedly. Exception: "+ e);
 						}
 					}
-				},100,10000);// Delay after 0.1s and repeat in 0.5s
+				},100,1000);// Delay after 0.1s and repeat in 1s
 	}
 	/**
 	 * 	Test case - Remove a remote server by rebind his url --> other server cannot reach to the server
@@ -198,7 +222,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	public void sendHeartBeat (int receiverID, int senderID) throws RemoteException{
 		try {
 			// Test with number 10
-			remoteServer.get(receiverID).heartBeat(senderID, 10);
+			remoteServer.get(receiverID).heartBeat(senderID, 10, this.waitingJobQueue);
 			
 			//remoteServer.get(receiverID).heartBeat(senderID, this.getTotalofJobs());
 			// Update heart beat
@@ -221,6 +245,34 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			remoteJobs.remove(remoteServerID);
 			remoteReply.remove(remoteServerID);
 			logger.log(Level.INFO, remoteServerID +" is removed by ID="+this.ID);
+			
+			List<Job> resignJobs = remoteJobQueues.get(remoteServerID);
+			
+			//Handle all server IDs, all server have the same order of IDs.
+			List<Integer> serverIDs = new ArrayList<Integer>(remoteServer.keySet());
+			serverIDs.add(this.ID);
+			Collections.sort(serverIDs);
+			
+			//Calculation
+			Integer serverSize = serverIDs.size();
+			Integer selfIndex = serverIDs.indexOf(this.ID);
+			Integer rangeOfJobSize = resignJobs.size()/serverSize;
+			List<Job> resignSelfJobList = new ArrayList<Job>();
+			if (selfIndex == (serverSize-1)) {
+				Integer finalRangeIndex = 0;
+				if(resignJobs.size()>0) {
+					finalRangeIndex = resignJobs.size();
+				}
+				resignSelfJobList = resignJobs.subList((selfIndex*rangeOfJobSize), finalRangeIndex);
+			} else {
+				resignSelfJobList = resignJobs.subList((selfIndex*rangeOfJobSize), ((selfIndex+1)*rangeOfJobSize));
+			}
+			
+			for (Job j: resignSelfJobList) {
+				addJob(j);
+			}
+			remoteJobQueues.remove(remoteServerID);
+			
 		}catch(Exception e){
 			logger.log(Level.SEVERE, remoteServerID +" cannot be removed - Exception: "+e);
 		}
@@ -260,11 +312,15 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	 *  heartbeat - update the status of sending node (alive or not); update it's current workloads
 	 * */
 	
-	public void heartBeat (int remoteID, int currentWorkloads) throws RemoteException{
+	public void heartBeat (int remoteID, int currentWorkloads, List<Job> processJobQuese){
 		// Test
 		logger.log(Level.INFO,"receiverID =" +this.ID +" passing senderID= "+remoteID +". workload= "+currentWorkloads);
 		// update the remote server with its current workloads
 		remoteJobs.put(remoteID, currentWorkloads);
+		remoteJobQueues.put(remoteID, processJobQuese);
+		for (Map.Entry <Integer, List<Job>> entry : remoteJobQueues.entrySet()){
+			System.out.println("Node ID:"+ this.ID + "remote Node ID:" + entry.getKey() + "job Queue:" + entry.getValue());
+		}
 	}
 	
 	/**
@@ -361,7 +417,10 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	public void addJob(Job job) throws RemoteException{
 		// add a job to Queue
 		if (job!=null){
+			job.assigendGSNode = this.ID;
 			waitingJobQueue.add(job);
+			// Add this job to clusterManager queue job.
+			clusterManager.addJob(job);
 			logger.log(Level.INFO, "add job with ID = " +job.getId());
 		} else 
 			logger.log(Level.SEVERE, "cannot add job with ID = "+job.getId());
@@ -369,7 +428,15 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	/**
 	 * 	Remove a finished job from queue
 	 * */
-	public boolean removeJob (Job job){
-			return waitingJobQueue.remove(job);
+	public void removeJob (Job job){
+		//The job send back from cluster are not the same object anymore
+		//Have to check id and remove base on that
+		for (Job j: waitingJobQueue) {
+			if (j.getId() == job.getId()) {
+				waitingJobQueue.remove(j);
+				break;
+			}
+		}
+		System.out.println("Node ID:"+ this.ID + "waiting job Queue:" + waitingJobQueue);
 	}
 }

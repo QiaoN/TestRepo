@@ -1,12 +1,11 @@
 package dcs.gridscheduler.model;
 
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
-import distributed.systems.core.IMessageReceivedHandler;
-import distributed.systems.core.Message;
-import distributed.systems.core.SynchronizedSocket;
-import distributed.systems.example.LocalSocket;
 
 /**
  * This class represents a resource manager in the VGS. It is a component of a cluster, 
@@ -22,19 +21,18 @@ import distributed.systems.example.LocalSocket;
  * Of course, this scheme is totally open to revision.
  * 
  * @author Niels Brouwers, Boaz Pat-El
- *
  */
-public class ResourceManager implements INodeEventHandler, IMessageReceivedHandler {
+public class ResourceManager implements INodeEventHandler, RMServerInterface {
+	/**
+	 * 
+	 */
 	private Cluster cluster;
-	private Queue<Job> jobQueue;
-	private String socketURL;
+	public Queue<Job> jobQueue;
 	private int jobQueueSize;
-	public static final int MAX_QUEUE_SIZE = 32; 
+	public static final int MAX_QUEUE_SIZE = 5; 
 
 	// Scheduler url
-	private String gridSchedulerURL = null;
-
-	private SynchronizedSocket socket;
+	private String gridSchedulerURL;
 
 	/**
 	 * Constructs a new ResourceManager object.
@@ -45,26 +43,33 @@ public class ResourceManager implements INodeEventHandler, IMessageReceivedHandl
 	 * </DL>
 	 * @param cluster the cluster to wich this resource manager belongs.
 	 */
-	public ResourceManager(Cluster cluster)	{
+	public ResourceManager(Cluster cluster, String gsURL)	{
 		// preconditions
 		assert(cluster != null);
+		assert(gsURL.length() > 0);
 
 		this.jobQueue = new ConcurrentLinkedQueue<Job>();
 
 		this.cluster = cluster;
-		this.socketURL = cluster.getName();
+		this.gridSchedulerURL = gsURL;
 
 		// Number of jobs in the queue must be larger than the number of nodes, because
 		// jobs are kept in queue until finished. The queue is a bit larger than the 
 		// number of nodes for efficiency reasons - when there are only a few more jobs than
 		// nodes we can assume a node will become available soon to handle that job.
 		jobQueueSize = cluster.getNodeCount() + MAX_QUEUE_SIZE;
+		
+		//Registry stub
+		RMServerInterface stub;
+		try {
+			stub = (RMServerInterface) UnicastRemoteObject.exportObject(this, 0);
+			Registry registry = LocateRegistry.getRegistry();
+			registry.rebind(this.cluster.getName(), stub);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		LocalSocket lSocket = new LocalSocket();
-		socket = new SynchronizedSocket(lSocket);
-		socket.register(socketURL);
-
-		socket.addMessageReceivedHandler(this);
 	}
 
 	/**
@@ -86,11 +91,18 @@ public class ResourceManager implements INodeEventHandler, IMessageReceivedHandl
 
 		// if the jobqueue is full, offload the job to the grid scheduler
 		if (jobQueue.size() >= jobQueueSize) {
+			//TODO: offload job
+		    Registry registry;
+			try {
+				registry = LocateRegistry.getRegistry();
+			    ClusterManagerInterface stub = (ClusterManagerInterface) registry.lookup(gridSchedulerURL);
+				stub.rmOffLoadJob(job);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
-			ControlMessage controlMessage = new ControlMessage(ControlMessageType.AddJob);
-			controlMessage.setJob(job);
-			socket.sendMessage(controlMessage, "localsocket://" + gridSchedulerURL);
-
+		    
 			// otherwise store it in the local queue
 		} else {
 			jobQueue.add(job);
@@ -125,7 +137,6 @@ public class ResourceManager implements INodeEventHandler, IMessageReceivedHandl
 		while ( ((waitingJob = getWaitingJob()) != null) && ((freeNode = cluster.getFreeNode()) != null) ) {
 			freeNode.startJob(waitingJob);
 		}
-
 	}
 
 	/**
@@ -136,67 +147,28 @@ public class ResourceManager implements INodeEventHandler, IMessageReceivedHandl
 	public void jobDone(Job job) {
 		// preconditions
 		assert(job != null) : "parameter 'job' cannot be null";
-
-		// job finished, remove it from our pool
-		jobQueue.remove(job);
-	}
-
-	/**
-	 * @return the url of the grid scheduler this RM is connected to 
-	 */
-	public String getGridSchedulerURL() {
-		return gridSchedulerURL;
-	}
-
-	/**
-	 * Connect to a grid scheduler
-	 * <p>
-	 * pre: the parameter 'gridSchedulerURL' must not be null
-	 * @param gridSchedulerURL
-	 */
-	public void connectToGridScheduler(String gridSchedulerURL) {
-
-		// preconditions
-		assert(gridSchedulerURL != null) : "the parameter 'gridSchedulerURL' cannot be null"; 
-
-		this.gridSchedulerURL = gridSchedulerURL;
-
-		ControlMessage message = new ControlMessage(ControlMessageType.ResourceManagerJoin);
-		message.setUrl(socketURL);
-		socket.sendMessage(message, "localsocket://" + gridSchedulerURL);
-
-	}
-
-	/**
-	 * Message received handler
-	 * <p>
-	 * pre: parameter 'message' should be of type ControlMessage 
-	 * pre: parameter 'message' should not be null 
-	 * @param message a message
-	 */
-	public void onMessageReceived(Message message) {
-		// preconditions
-		assert(message instanceof ControlMessage) : "parameter 'message' should be of type ControlMessage";
-		assert(message != null) : "parameter 'message' cannot be null";
-
-		ControlMessage controlMessage = (ControlMessage)message;
-
-		// resource manager wants to offload a job to us 
-		if (controlMessage.getType() == ControlMessageType.AddJob)
-		{
-			jobQueue.add(controlMessage.getJob());
+	    
+	    Registry registry;
+		try {
+			registry = LocateRegistry.getRegistry();
+		    ClusterManagerInterface stub = (ClusterManagerInterface) registry.lookup(gridSchedulerURL);
+			stub.rmFinishJob(job);
+			// job finished, remove it from our pool
+			jobQueue.remove(job);
 			scheduleJobs();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
+	    
 
-		// resource manager wants to offload a job to us 
-		if (controlMessage.getType() == ControlMessageType.RequestLoad)
-		{
-			ControlMessage replyMessage = new ControlMessage(ControlMessageType.ReplyLoad);
-			replyMessage.setUrl(cluster.getName());
-			replyMessage.setLoad(jobQueue.size());
-			socket.sendMessage(replyMessage, "localsocket://" + controlMessage.getUrl());				
-		}
-
+	}
+	
+	@Override
+	public void loadJob (Job job) throws RemoteException {
+		assert(job != null): "parameter 'job' cannot be null";
+		System.out.println("RM load Job id ="+job.toString());
+		addJob(job);
 	}
 
 }

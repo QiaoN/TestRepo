@@ -1,6 +1,7 @@
 package dcs.gridscheduler.model;
 
 import java.io.Serializable;
+import java.rmi.RemoteException;
 
 /**
  * This class represents a job that can be executed on a grid. 
@@ -9,10 +10,14 @@ import java.io.Serializable;
  *
  */
 public class Job implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -3626008844797411952L;
 	private long duration;
 	private JobStatus status;
 	private long id;
-
+	public int assigendGSNode;
 	/**
 	 * Constructs a new Job object with a certain duration and id. The id has to be unique
 	 * within the distributed system to avoid collisions.
@@ -24,7 +29,7 @@ public class Job implements Serializable {
 	 * @param duration job duration in milliseconds 
 	 * @param id job ID
 	 */
-	public Job(long duration, long id) {
+	public Job(long duration, long id) throws RemoteException {
 		// Preconditions
 		assert(duration > 0) : "parameter 'duration' should be > 0";
 
