@@ -29,7 +29,7 @@ public class ResourceManager implements INodeEventHandler, RMServerInterface {
 	private Cluster cluster;
 	public Queue<Job> jobQueue;
 	private int jobQueueSize;
-	public static final int MAX_QUEUE_SIZE = 5; 
+	public static final int MAX_QUEUE_SIZE = 64; 
 
 	// Scheduler url
 	private String gridSchedulerURL;

@@ -18,5 +18,5 @@ public interface ClientServerInterface extends Remote{
 	/**
 	 * 	Client submit a job
 	 * */
-	public void addJob(Job job) throws RemoteException;
+	public void addJob(boolean firstTime, Job job) throws RemoteException;
 }
