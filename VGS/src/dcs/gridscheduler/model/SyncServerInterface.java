@@ -16,7 +16,7 @@ public interface SyncServerInterface extends Remote{
 	/**
 	 *  heartbeat - update the status of sending node (alive or not); update it's current workloads
 	 * */
-	public void heartBeat (int remoteID, int currentWorkloads, List<Job> processJobList) throws RemoteException;
+	public void heartBeat (int remoteID, List<Job> processJobList) throws RemoteException;
 	
 	/**
 	 * 	When remote server is back, it will do registration procedure in the current of group servers.
@@ -27,7 +27,7 @@ public interface SyncServerInterface extends Remote{
 	/**
 	 *  offload jobs to less busy server (1 job per time)
 	 * */
-	public void offloadJob (Job offjob) throws RemoteException;
+	public void offloadJob (int senderID, Job offjob) throws RemoteException;
 		
 	/**
 	 *  feedback when jobs done

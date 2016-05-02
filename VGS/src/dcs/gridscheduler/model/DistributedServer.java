@@ -9,10 +9,7 @@ import java.rmi.RemoteException;
 import java.rmi.server.RemoteServer;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
-<<<<<<< HEAD
-=======
 import java.util.Collections;
->>>>>>> 520ab996c10a10ddac52ec59bc754f72f0f4003b
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -29,14 +26,6 @@ import java.util.logging.FileHandler;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.SimpleFormatter;
 
-/**
- * This class is represented to a scheduler in virtual grid. Receive tasks from client and send to
- * Cluster. Also, The scheduler replicate message to other scheduler and do fault tolerance.
- * 
- * Author Viet Do
- * */
-
-
 public class DistributedServer extends UnicastRemoteObject implements SyncServerInterface, ClientServerInterface{
 
 	//Job Queue
@@ -48,33 +37,14 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	private boolean running;
 	private final Logger logger = Logger.getLogger(DistributedServer.class.getName());
 	private int totalJob=0; // total Job in queue + in clusters; when a job done --
-<<<<<<< HEAD
-	
-	
-	/*Notice 2 queue will keep here temporarily, in next version, will be updated to clusterManager*/
-	private ConcurrentLinkedQueue<Job> waitingJobQueue; // Queue of comming job from clients.
-	private ConcurrentLinkedQueue<Job> outcomeJobQueue;
-	
-	/*Tracker - keep track the comming task queue and waiting task queue temporarily*/
-	private ConcurrentLinkedQueue<Job> waitingJobQueue_t; // Queue of comming job from clients.
-	private ConcurrentLinkedQueue<Job> outcomeJobQueue_t;
-	private Job headOfWaitingQueue;
-=======
 	private List<Job> waitingJobQueue; // Queue of comming job from clients.
->>>>>>> 520ab996c10a10ddac52ec59bc754f72f0f4003b
+	private boolean previousState = true; // previous time it doesn't crash.
 	
 	/*Remote Servers*/
 	private List ServerULR; // Co can khong nhi - co SyncServerInterface o tren roi... -> co the convert ra list of server
 	private Map <Integer, SyncServerInterface> remoteServer; // remoteObject
 	private Map <Integer, Integer> remoteJobs; // total current Job at remote server
-<<<<<<< HEAD
-	private Map <Integer, SyncServerInterface> replicatedServer; // list 2 server for replicating 
-	
-	/*Replicated Objects*/ // Keep waiting list and outcome list of job
-	private Map <Integer, ReplicatedObject> replicas; 
-=======
 	private Map <Integer, List<Job>> remoteJobQueues;
->>>>>>> 520ab996c10a10ddac52ec59bc754f72f0f4003b
 	
 	/* Mechanism of Updating heart beat state - starting with 0. when send heartbeat successful the state
 	 * will be update 0. If cannot send heartbeat the state will be minused by 1 (-1,-2,..). If there is a remote server die
@@ -95,9 +65,6 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	/*Client*/
 	private Map <Integer,String> clientList; // the list of connected client
 	
-	/*clear flag*/
-	int flag = 0; /*count the number of replicas if flag = 2 --> can be clear, then set flag = 0*/
-	
 	/*Test*/
 	private int loopNumber = 0; // Increase after each loop of sending heartbeat
 	
@@ -110,14 +77,16 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			if (object.id == ID)
 				this.URL = object.url;		
 		}
+    	// Register hostname parsing from url
+		if (this.URL.length()>0){
+			//url = //54.93.96.147:1100/gridscheduler
+			String host = this.URL.replaceAll("//", ""); // remove //
+			host = host.replaceAll(":1099/gridscheduler", ""); //get rid of :1100/gridscheduler
+			logger.log(Level.INFO,"value of host ="+host);
+			System.setProperty("java.rmi.server.hostname", host);
+		}
 		// Remote Server
 		remoteServer = new HashMap<Integer,SyncServerInterface>();
-		
-		//Replicated Server
-		replicatedServer = new HashMap<Integer,SyncServerInterface>();
-		
-		//Replicas
-		replicas = new HashMap<Integer, ReplicatedObject>();
 		
 		// Map
 		remoteJobs = new HashMap<Integer, Integer>();
@@ -127,46 +96,34 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 		
 		// Client
 		clientList = new HashMap<Integer, String>();
-<<<<<<< HEAD
-		waitingJobQueue = new ConcurrentLinkedQueue<Job>();
 		
-		// replicated queue
-		waitingJobQueue_t = new ConcurrentLinkedQueue<Job>();
-		outcomeJobQueue_t = new ConcurrentLinkedQueue<Job>();
-		
-		// Test replication
-		waitingJobQueue_t.add(new Job(1000, this.ID*100+3));
-		waitingJobQueue_t.add(new Job(1000, this.ID*100+4));
-		waitingJobQueue_t.add(new Job(1000, this.ID*100+5));
-		
-		outcomeJobQueue_t.add(new Job(1000, this.ID*100+0));
-		outcomeJobQueue_t.add(new Job(1000, this.ID*100+1));
-		outcomeJobQueue_t.add(new Job(1000, this.ID*100+2));
-		
-=======
-		waitingJobQueue = new ArrayList<Job>();
+		// waitingJobQueue now safe thread
+		waitingJobQueue = Collections.synchronizedList(new ArrayList<Job>());
 				
->>>>>>> 520ab996c10a10ddac52ec59bc754f72f0f4003b
 		// Logger configuration
 		logger.setLevel(Level.ALL);
 		// Log to a file when deploying to AWS. Nomarlly, we put log to console.
-		/*FileHandler fileHander = null;
+		FileHandler fileHander = null;
 		SimpleFormatter simpleFormatter = new SimpleFormatter();
 		try {
-			 fileHander = new FileHandler("./vgs-"+this.ID+".log");
+			 fileHander = new FileHandler("./"+System.currentTimeMillis()+"-vgs-"+this.ID+".log");
 			 fileHander.setLevel(Level.ALL);
 			 fileHander.setFormatter(simpleFormatter);
 			 logger.addHandler(fileHander);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			logger.log(Level.SEVERE, "Error in setting logger", e);
-		}*/
+		}
 	}
 	public void starting() throws RemoteException{
 		// Binding with the name is its URL
 			try {
 				logger.log(Level.INFO,"url ="+this.URL);
-				Naming.rebind(this.URL, this);
+				//Split the name from url
+				String[] parsingName = this.URL.split("/");
+				if (parsingName[3]!=null)
+				Naming.rebind(parsingName[3], this);
+				else logger.log (Level.SEVERE, "Cannot get the key object for transfer data");
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				logger.log (Level.SEVERE, "starting exception ="+e.toString());
@@ -175,12 +132,11 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 		/*Test communication from client to GS, then to ClusterManger, to RM and nodes */
 		// ClusterManager
 			try {
-				clusterManager = new ClusterManager(2,5,this.URL+"-cl", this);
+				clusterManager = new ClusterManager(4,50,this.URL+"-cl", this);
 			} catch (Exception e) {
 				// TODO: handle exception
 				logger.log(Level.SEVERE, "ClusterManager Exception ="+ e);
 			}
-
 			
 		//create heartBeatTimer but wait for other remote servers launch then start heartBeatTimer
 			heartBeatTimer = new Timer();
@@ -198,19 +154,10 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 							// Stop remote server ID = 103
 							stopRemoteServer();
 						}*/
-						// recheck replicated servers
-						findReplicatedSever();
-												
-						// replicate data to remote server
-						for (Map.Entry<Integer, SyncServerInterface> entry : replicatedServer.entrySet()){
-							logger.log(Level.INFO, "entry.getKey ="+entry.getKey()+"entry.getValue ="+entry.getValue());
-							flag++;
-							packAndSendData(entry.getKey(),ID);
-						}
+						logger.log(Level.INFO," -Waiting job queue is: "+waitingJobQueue.size());
+
 						// Send heartbeat message to remote Servers
 						for (Map.Entry<Integer, SyncServerInterface> entry : remoteServer.entrySet()){
-							// If server is not in list of replicated server --> Send heartbeart
-							if (replicatedServer.containsKey(entry.getKey())==false)
 							sendHeartBeat (entry.getKey(), ID);
 						}
 						// In ra o day xem remote servers co bao nhieu phan tu
@@ -224,8 +171,25 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 						logger.log(Level.SEVERE," Cannot send heartbeat message repeatedly. Exception: "+ e);
 						}
 					}
-				},100,1000);// Delay after 0.1s and repeat in 1s
+				},30000,500);// Delay after 30s and repeat in 1s
 	}
+	
+	/**
+	 * set previous state from last time run
+	 * 
+	 * */ 
+	public void	setPreviousState(boolean status){
+		 this.previousState = false;
+	}	
+	
+	/**
+	 * set previous state from last time run
+	 * 
+	 * */ 
+	public boolean	getPreviousState(){
+		 return this.previousState;
+	}	
+	
 	/**
 	 * 	Test case - Remove a remote server by rebind his url --> other server cannot reach to the server
 	 *  Heartbeat is changed. And should remove remoteserver list in order to disconnected server
@@ -261,7 +225,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 				remoteJobs.put(listURL[i].id,0);
 				// Create the map - status of remote server updated through heartbeat - starting with 0
 				remoteReply.put(listURL[i].id,0);
-				logger.log (Level.INFO,"connectToRemoteServers "+listURL[i].id+" by server " + this.ID);
+				logger.log (Level.INFO,"try connectToRemoteServers "+listURL[i].id+" by server " + this.ID);
 			} catch (Exception e) {
 				// TODO: handle exception
 				logger.log (Level.SEVERE,"connectToRemoteServers exception" + e.toString());
@@ -290,7 +254,7 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	public void sendHeartBeat (int receiverID, int senderID) throws RemoteException{
 		try {
 			// Test with number 10
-			remoteServer.get(receiverID).heartBeat(senderID, 10, this.waitingJobQueue);
+			remoteServer.get(receiverID).heartBeat(senderID, this.waitingJobQueue);
 			
 			//remoteServer.get(receiverID).heartBeat(senderID, this.getTotalofJobs());
 			// Update heart beat
@@ -314,6 +278,8 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			remoteReply.remove(remoteServerID);
 			logger.log(Level.INFO, remoteServerID +" is removed by ID="+this.ID);
 			
+			//7th April 2016
+			if (remoteJobQueues.isEmpty()==false){
 			List<Job> resignJobs = remoteJobQueues.get(remoteServerID);
 			
 			//Handle all server IDs, all server have the same order of IDs.
@@ -337,10 +303,10 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 			}
 			
 			for (Job j: resignSelfJobList) {
-				addJob(j);
+				addJob(false,j);
 			}
 			remoteJobQueues.remove(remoteServerID);
-			
+		}
 		}catch(Exception e){
 			logger.log(Level.SEVERE, remoteServerID +" cannot be removed - Exception: "+e);
 		}
@@ -380,11 +346,11 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	 *  heartbeat - update the status of sending node (alive or not); update it's current workloads
 	 * */
 	
-	public void heartBeat (int remoteID, int currentWorkloads, List<Job> processJobQuese){
+	public void heartBeat (int remoteID, List<Job> processJobQuese){
 		// Test
-		logger.log(Level.INFO,"receiverID =" +this.ID +" passing senderID= "+remoteID +". workload= "+currentWorkloads);
+		logger.log(Level.INFO,"receiverID =" +this.ID +" passing senderID= "+remoteID);
 		// update the remote server with its current workloads
-		remoteJobs.put(remoteID, currentWorkloads);
+		//remoteJobs.put(remoteID, currentWorkloads);
 		remoteJobQueues.put(remoteID, processJobQuese);
 		for (Map.Entry <Integer, List<Job>> entry : remoteJobQueues.entrySet()){
 			System.out.println("Node ID:"+ this.ID + "remote Node ID:" + entry.getKey() + "job Queue:" + entry.getValue());
@@ -392,9 +358,78 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	}
 	
 	/**
+	 *  Calculate average current workload and decided offload or not
+	 *  Return boolean to decide offfload job or not  
+	 * */
+	public boolean calculateWorkload() throws Exception{
+		int index =0;
+		int totalWorkload =0;
+		for(Map.Entry<Integer, List<Job>> entry : remoteJobQueues.entrySet()){
+			totalWorkload=+entry.getValue().size();
+			index++;
+		}
+		if (index!=0){
+		 int averageWorkload = totalWorkload/index;
+		 if (waitingJobQueue.isEmpty()==false){
+			 // Current workload is larger than average workload in queue of other scheduler
+			 if(waitingJobQueue.size()-averageWorkload >0){
+				 return true;
+			 }
+			 else // the current job in queue small than average, so do nothing
+				logger.log(Level.INFO, "The current total of job is smaller than the average number");
+		 	}
+		}
+		return false;
+	} 
+	
+	/**
+	 * 	Return the id of lowest load GS or 0 if it doesn't offload job
+	 * */
+	public int findLowestLoadGS(){
+		try {
+			boolean OffloadJobs = this.calculateWorkload();
+			if (OffloadJobs==true){
+				int lowestID =0;
+				int lowestWorkload =0;
+				// find the scheduler having lowest workload
+				for (Map.Entry <Integer, List<Job>> entry : remoteJobQueues.entrySet()){
+					if (lowestID==0){
+					// first value --> assign to first value	
+						lowestID = entry.getKey();
+						lowestWorkload = entry.getValue().size();
+					}else{
+					// compare	
+						if (lowestWorkload > entry.getValue().size()){
+							// update lowest value
+							lowestWorkload =entry.getValue().size();
+							lowestID = entry.getKey();
+						}
+					}
+				}
+				logger.log(Level.INFO, "Lowest load node has ID= "+lowestID);
+				return lowestID;
+			} 
+			return 0;
+		}catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			return 0;
+		}
+	}
+	
+	/**
 	 *  offload jobs to less busy server (1 job per time)
 	 * */
-	public void offloadJob (Job offjob) throws RemoteException{}
+	public void offloadJob (int senderID, Job offjob) throws RemoteException{
+		List<Job> remoteQueue = remoteJobQueues.get(senderID);
+		logger.log(Level.INFO, "currentJob offload =", offjob.getId());
+		try{
+		this.addJob(false,offjob);
+		}
+		catch(Exception e){
+			logger.log(Level.SEVERE, "cannot offload job ="+ e);
+		}
+	}
 		
 	/**
 	 *  feedback when jobs done
@@ -482,14 +517,32 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 	/**
 	 * 	Client submit a job
 	 * */
-	public void addJob(Job job) throws RemoteException{
+	public void addJob(boolean firstTime, Job job) throws RemoteException{
 		// add a job to Queue
 		if (job!=null){
 			job.assigendGSNode = this.ID;
+			
+			if(firstTime ==true){
+			// Se check and offload job o day
+			int lowestLoadID = this.findLowestLoadGS();
+			
+			if (lowestLoadID >0){
+				try {
+					//offload job
+					remoteServer.get(lowestLoadID).offloadJob(this.ID,job);
+					logger.log(Level.INFO, "offload job to ID = " +lowestLoadID);
+				} catch (Exception e) {
+					// TODO: handle exception
+					logger.log(Level.SEVERE, "cannot add job to ID = " +lowestLoadID);
+				}
+			}
+			}
+			else{
 			waitingJobQueue.add(job);
 			// Add this job to clusterManager queue job.
 			clusterManager.addJob(job);
 			logger.log(Level.INFO, "add job with ID = " +job.getId());
+			}
 		} else 
 			logger.log(Level.SEVERE, "cannot add job with ID = "+job.getId());
 	}
@@ -505,127 +558,6 @@ public class DistributedServer extends UnicastRemoteObject implements SyncServer
 				break;
 			}
 		}
-		System.out.println("Node ID:"+ this.ID + "waiting job Queue:" + waitingJobQueue);
-	}
-
-	/*************** Replication and consistency ************************/
-	
-	/**
-	 * 	
-	 * */
-	public void findReplicatedSever(){
-		ArrayList<Integer> currentActiveServerID = new ArrayList<Integer>();
-		// Get ID of current active remote server
-		for (Map.Entry<Integer, SyncServerInterface> entry : remoteServer.entrySet()){
-				currentActiveServerID.add(entry.getKey());
-		}
-		//In order to compare --> should add this id to the list.
-		currentActiveServerID.add(ID);
-		
-		SortingAlgorithm sorter = new SortingAlgorithm();
-		ArrayList<Integer> replicatedServerID=null;
-		try {
-			replicatedServerID = sorter.sorting(currentActiveServerID, this.ID);
-			if (replicatedServer.size()==0){
-				// The first time --> we use replicatedServer ID
-					replicatedServer.put(replicatedServerID.get(0), remoteServer.get(replicatedServerID.get(0)));
-					replicatedServer.put(replicatedServerID.get(1), remoteServer.get(replicatedServerID.get(1)));
-				}
-				else {
-					int oldEntrydied=0;
-					int newEntry =0;
-				// Check if the values different or not	- With two crashed server --> this code needs improvement
-					for (Map.Entry<Integer, SyncServerInterface> entry : replicatedServer.entrySet()){
-						
-						if (replicatedServerID.contains(entry.getKey())==false){
-							// The old replica die --> change to replica id = i.
-							 oldEntrydied = entry.getKey();
-						}
-					}
-					if (oldEntrydied !=0){
-						// There is a different state
-						for (Integer i : replicatedServerID){
-							if (replicatedServer.containsKey(i)==false){
-								newEntry = i;
-							}
-						}
-					}
-					// update new replicas to replicatedServer List.
-					replicatedServer.remove(oldEntrydied);
-					replicatedServer.put(newEntry, remoteServer.get(newEntry));
-				}
-
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	/**
-	 * 	Pack data and send
-	 * */
-	public void packAndSendData(int replicateServerID, int senderID){
-		ConcurrentLinkedQueue<Job> sendWaitingJobQueue = new ConcurrentLinkedQueue<>();
-		ConcurrentLinkedQueue<Job> sendOutcomeJobQueue = new ConcurrentLinkedQueue<>();
-		// If queues have changed --> do replication if not, do nothing.
-		if((waitingJobQueue_t.size()>0)&&(outcomeJobQueue_t.size()>0)){
-			// finished jobs add to queue from the last replication.
-			sendOutcomeJobQueue = outcomeJobQueue_t;
-			// waiting jobs add to queue from the last replication.
-			sendWaitingJobQueue = waitingJobQueue_t;
-			// get current head of waiting queue
-			headOfWaitingQueue = waitingJobQueue.peek();
-			try {
-				replicatedServer.get(replicateServerID).replicateJobQueues(senderID, headOfWaitingQueue, sendWaitingJobQueue, sendOutcomeJobQueue);
-				// clear the data sent in queues - we have to remove each element as there are maybe some new jobs added to 
-				if (flag == 2){
-				// queues when replicating data to replicas
-				clearSentElements(outcomeJobQueue_t, sendOutcomeJobQueue);
-				clearSentElements(waitingJobQueue_t, sendWaitingJobQueue);
-				flag = 0; // reset flag
-				}
-				remoteReply.put(replicateServerID, 0);
-				logger.log(Level.INFO, senderID +" sends replicated data to "+ replicateServerID);
-			} catch (Exception e) {
-				// TODO: handle exception				
-				int updateValue = remoteReply.get(replicateServerID)-1;
-				remoteReply.put(replicateServerID, updateValue);
-				logger.log(Level.SEVERE, replicateServerID +" cannot receive replicated data. value ="+ updateValue+ " Exception :"+e.toString());
-			}		
-		}	
-	}
-	
-	/**
-	 * 	Clear elements sent in queues
-	 * */
-	public void clearSentElements (ConcurrentLinkedQueue<Job> originalQueue, ConcurrentLinkedQueue<Job> replicatedQueue){
-		// Iterating all elements of replicatedQueue
-		for (Job j : replicatedQueue){
-			originalQueue.remove(j);
-		}
-	}
-	/**
-	 * 	Replicate waiting task and finished task to replicas
-	 * */
-	public  void replicateJobQueues (int originalID, Job headOfWaitingQueue, ConcurrentLinkedQueue<Job> waitingJobQueue, ConcurrentLinkedQueue<Job> finishedJobQueue) throws RemoteException{
-	// update to replicaObject in remote Sever chosen
-	
-	// the first time, Replicas is no elements or just receive update from the first original server
-		if ((replicas.size()==0)||(replicas.size()==1)){
-			replicas.put(originalID, new ReplicatedObject(originalID, ServerStatus.Running,waitingJobQueue,finishedJobQueue));
-			logger.log(Level.INFO, this.ID +" received replicated data from "+ originalID +" data ="+ replicas.get(originalID).toString());
-		} else {
-			// replicas has the same id
-			if (replicas.containsKey(originalID)){
-				ReplicatedObject ro = replicas.get(originalID);
-				ro.updateFinishedList(finishedJobQueue);
-				ro.updateWaitingList(headOfWaitingQueue,waitingJobQueue);
-				logger.log(Level.INFO, this.ID +" received replicated data from "+ originalID +" data ="+ replicas.get(originalID).toString());
-			}
-			else {
-				// replicas has different ID --> treat it as a new replicas.
-				replicas.put(originalID, new ReplicatedObject(originalID, ServerStatus.Running,waitingJobQueue,finishedJobQueue));
-				logger.log(Level.INFO, this.ID +" received replicated data from "+ originalID +" data ="+ replicas.get(originalID).toString());
-			}
-		}
+		//System.out.println("Node ID:"+ this.ID + "waiting job Queue:" + waitingJobQueue);
 	}
 }

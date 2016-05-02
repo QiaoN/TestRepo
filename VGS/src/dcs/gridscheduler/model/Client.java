@@ -35,8 +35,8 @@ public class Client{
 		for (ServerURL url:serverURL) {
 			try {
 				ClientServerInterface serverObj = (ClientServerInterface)Naming.lookup(url.url);
-				this.serverObjects.add(serverObj);
 				serverObj.connectToServer(this.ID, this.Name);
+				this.serverObjects.add(serverObj);
 				logger.log(Level.INFO, "Client -id = "+this.ID+" connect to server "+url.url);
 			} catch (Exception e) {
 				// TODO: handle exception
@@ -52,16 +52,30 @@ public class Client{
 	}
 	
 	public void submitAJobToServer(Job job){
-		//int serverId = new Random().nextInt(this.serverObjects.size());
-		long jobID = job.getId();
+		if (this.serverObjects.isEmpty()!=true){
+		//Test random load
+		int serverId = new Random().nextInt(this.serverObjects.size());
+		/*long jobID = job.getId();
 		int serverSize = this.serverObjects.size();
-		int serverId = Math.toIntExact(jobID % serverSize); 
+		int serverId = Math.toIntExact(jobID % serverSize);*/
+		
+		//Test only -> 1 server 102
+		//int serverId = 1;
 		try {
-			this.serverObjects.get(serverId).addJob(job);
+			this.serverObjects.get(serverId).addJob(true,job);
 			logger.log(Level.INFO, "Job before submit ID=" + job.getId());
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			logger.log(Level.SEVERE, "cannot add job to server client ID=" + this.ID+ " Exception ="+ e);
-		}
-	}
+			logger.log(Level.SEVERE, "cannot add job to server ID = "+this.serverObjects.get(serverId).toString()+" client ID=" + this.ID+ " Exception ="+ e);
+			// server crashes --> get rid of him and retry to send to another. remove until all server crash --> stop
+			if (this.serverObjects.isEmpty()!=true){
+			this.serverObjects.remove(serverId);
+			logger.log(Level.INFO, "Remove server ID ="+serverId);
+			// add to another server
+			this.submitAJobToServer(job);
+				}
+			}
+		} else 	logger.log(Level.INFO, "Nothing to connect");
+	} 
+
 }

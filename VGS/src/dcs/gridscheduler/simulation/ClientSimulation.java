@@ -1,21 +1,30 @@
 package dcs.gridscheduler.simulation;
 
 import java.rmi.RemoteException;
+import java.util.Random;
 import java.util.logging.Level;
 
 import com.sun.media.jfxmedia.logging.Logger;
 
 import dcs.gridscheduler.model.Client;
+import dcs.gridscheduler.model.ConfigurationReader;
 import dcs.gridscheduler.model.Job;
 import dcs.gridscheduler.model.ServerURL;
 
 public class ClientSimulation {
 
 	public static void main(String[] args) {
+		
+		//get id from console id = 110, 120 or 130
+		int id = (args.length < 1)? 0 :Integer.valueOf(args[0]);
+		int totalJob = (args.length < 2)? 0 :Integer.valueOf(args[1]);
 		// ServerList
-		ServerURL[] serverURLList = new ServerURL[]{new ServerURL(101,"192.168.1.1"), new ServerURL(102,"192.168.1.2"),new ServerURL(103,"192.168.1.3")};
+		//Configuration file 
+		String path = "C:\\ec2\\deployment-vdo\\Github\\VGS\\ServerList.csv";
+		ConfigurationReader config = new ConfigurationReader(path);
+		ServerURL[] serverURLList = config.URLparsing();
 
-		Client aClient = new Client(202,"Aloha");
+		Client aClient = new Client(id,"Client."+Integer.toString(id));
 		boolean connect = false;
 		int loop = 0;
 		while (true){
@@ -33,13 +42,16 @@ public class ClientSimulation {
 		//if (connect == true) aClient.submitAJobToServer(aNewJob);
 		
 		// Send a thousand of workloads to test...
-		for (int i= 0; i<5; i++){
+		System.out.println("Total number of jobs is "+totalJob);
+		for (int i= 0; i<totalJob; i++){
 			Job bNewJob=null;
 			try {
-				//int duration = new Random().nextInt((19 - 11 + 1) + 11);
-				//int duratoinTime = duration*1000;
-				int durationTime = 15000;
-				bNewJob = new Job(durationTime,i);
+				//Random job from 300 to 360 seconds
+				int duration = new Random().nextInt(360 - 300 + 1) + 300;
+				int durationTime = duration*1000;
+				//int durationTime = 15000;
+				// job id = 1100000 - enough for x*10000 jobs per client
+				bNewJob = new Job(durationTime,id*1000+i);
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();

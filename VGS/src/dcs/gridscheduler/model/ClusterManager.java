@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * This class should be a property of gs node. 
  * This class help gs node to manage and communicate with its clusters.
  */
-public class ClusterManager implements ClusterManagerInterface {
+public class ClusterManager implements ClusterManagerInterface, Runnable {
 	//TODO: handle multiple clusters
 	private List <Cluster> clusterList;
 	public ConcurrentLinkedQueue<Job> jobProcessQueue;
@@ -21,6 +21,8 @@ public class ClusterManager implements ClusterManagerInterface {
 	private static String clusterPrefix = "cluster";
 	private String gsURL;
 	private DistributedServer gsNode;
+	private Thread pushingThread;
+	private boolean running;
 	
 	/*gsURL here = Address of Scheduler + "-cl" to distinguish ClusterManager of each Scheduler*/
 	public ClusterManager(int clusterNumber, int nodeNumber, String gsURL, DistributedServer gsNode) {
@@ -55,12 +57,17 @@ public class ClusterManager implements ClusterManagerInterface {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		// Start the pushing thread
+		running = true;
+		pushingThread = new Thread(this);
+		pushingThread.start();
 	}
 	
 	public void addJob(Job job) {
 		assert(job != null);
 		jobProcessQueue.add(job);
-		pushJob();
+		//pushJob();
 	}
 	
 	//TODO: think about that this method should run automatically or logic triggered 
@@ -113,6 +120,25 @@ public class ClusterManager implements ClusterManagerInterface {
 		}
 		
 		return mostFreeCluster.getName();
+	}
+
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		while (running) {
+			// push the job
+			if (jobProcessQueue.size() > 0) {
+				pushJob();
+			}
+			
+			// sleep 1s
+			try {
+				Thread.sleep(5);
+			} catch (InterruptedException ex) {
+				assert(false) : "Cluster poll thread was interrupted";
+			}
+			
+		}
 	}
 	
 }
